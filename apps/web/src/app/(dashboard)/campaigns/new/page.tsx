@@ -79,7 +79,9 @@ export default function NewCampaignPage() {
   const [step, setStep] = useState(1);
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [bodyTemplate, setBodyTemplate] = useState('');
+  const [subjectValue, setSubjectValue] = useState('');
   const [detectedVars, setDetectedVars] = useState<string[]>([]);
+  const [invalidVars, setInvalidVars] = useState<{ raw: string; suggestion: string }[]>([]);
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const [previewRecipientIdx, setPreviewRecipientIdx] = useState(0);
@@ -89,6 +91,10 @@ export default function NewCampaignPage() {
   // Manual entry state
   const [manualColumns, setManualColumns] = useState<string[]>(['email', 'name']);
   const [manualRows, setManualRows] = useState<Record<string, string>[]>([{ email: '', name: '' }]);
+  // Add column inline input state
+  const [newColumnName, setNewColumnName] = useState('');
+  const [columnNameError, setColumnNameError] = useState('');
+  const [showAddColumn, setShowAddColumn] = useState(false);
 
   const {
     register: registerStep1,
@@ -97,15 +103,53 @@ export default function NewCampaignPage() {
     formState: { errors: step1Errors },
   } = useForm<Step1Form>({ resolver: zodResolver(step1Schema) });
 
-  // ─── Variable Detection ──────────────────────────────────────────────────
-  const detectVars = (text: string) => {
-    const regex = /\{\{(\w+)\}\}/g;
-    const vars = new Set<string>();
-    let match;
-    while ((match = regex.exec(text)) !== null) {
-      if (match[1]) vars.add(match[1]);
+  // ─── Variable Detection (subject + body) ───────────────────────────────
+  // Scans ALL {{...}} placeholders — classifies each as valid or invalid.
+  const detectVars = (body: string, subject: string) => {
+    const allVarRegex = /\{\{([^}]+)\}\}/g;
+    const validRegex = /^[a-z0-9_]+$/;
+    const validSet = new Set<string>();
+    const invalidMap = new Map<string, string>(); // raw → suggestion
+    for (const text of [subject, body]) {
+      let match;
+      const r = new RegExp(allVarRegex.source, 'g');
+      while ((match = r.exec(text)) !== null) {
+        const raw = match[1].trim();
+        if (validRegex.test(raw)) {
+          validSet.add(raw);
+        } else {
+          const suggestion = raw.toLowerCase().replace(/ /g, '_').replace(/[^a-z0-9_]/g, '');
+          invalidMap.set(raw, suggestion || '???');
+        }
+      }
     }
-    setDetectedVars(Array.from(vars));
+    setDetectedVars(Array.from(validSet));
+    setInvalidVars(Array.from(invalidMap.entries()).map(([raw, suggestion]) => ({ raw, suggestion })));
+  };
+
+  // ─── Variable Name Sanitization ──────────────────────────────────────────
+  // Auto-transform as user types: uppercase→lowercase, space→underscore.
+  // Returns { value, error } — error is set if remaining invalid chars exist.
+  const transformColumnName = (raw: string): { value: string; error: string } => {
+    // Step 1: auto-convert uppercase → lowercase, space → underscore
+    const transformed = raw.toLowerCase().replace(/ /g, '_');
+    // Step 2: detect any remaining invalid chars
+    const invalidChars = transformed.match(/[^a-z0-9_]/g);
+    if (invalidChars) {
+      const unique = [...new Set(invalidChars)].map((c) => `"${c}"`).join(', ');
+      return {
+        value: transformed,
+        error: `Invalid character(s): ${unique}. Only a–z, 0–9, and _ are allowed.`,
+      };
+    }
+    return { value: transformed, error: '' };
+  };
+
+  // Legacy helper used by addManualColumn
+  const sanitizeVarName = (raw: string): string | null => {
+    const { value, error } = transformColumnName(raw);
+    if (error || !value) return null;
+    return value;
   };
 
   // ─── Step 1: Details ──────────────────────────────────────────────────────
@@ -127,6 +171,10 @@ export default function NewCampaignPage() {
   const onStep2Next = async () => {
     if (!campaign || !bodyTemplate.trim()) {
       toast.error('Please enter an email body template');
+      return;
+    }
+    if (invalidVars.length > 0) {
+      toast.error('Fix invalid template variables before proceeding');
       return;
     }
     try {
@@ -189,11 +237,29 @@ export default function NewCampaignPage() {
   };
 
   const addManualColumn = () => {
-    const name = prompt('Column name:');
-    if (!name?.trim()) return;
-    const colName = name.trim();
+    const raw = newColumnName.trim();
+    if (!raw) {
+      setColumnNameError('Column name cannot be empty.');
+      return;
+    }
+    const { value: colName, error } = transformColumnName(raw);
+    if (error) {
+      setColumnNameError(error);
+      return;
+    }
+    if (!colName) {
+      setColumnNameError('Column name must contain at least one letter or digit.');
+      return;
+    }
+    if (manualColumns.includes(colName)) {
+      setColumnNameError(`Column "${colName}" already exists.`);
+      return;
+    }
     setManualColumns((c) => [...c, colName]);
     setManualRows((rows) => rows.map((r) => ({ ...r, [colName]: '' })));
+    setNewColumnName('');
+    setColumnNameError('');
+    setShowAddColumn(false);
   };
 
   const addManualRow = () => {
@@ -270,33 +336,49 @@ export default function NewCampaignPage() {
         <Card>
           <CardHeader>
             <CardTitle>Campaign Details</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Give your campaign a name and subject line. You can personalise both with
+              dynamic variables like <code className="text-xs bg-muted px-1 py-0.5 rounded font-mono">{'{{name}}'}</code>.
+            </p>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleStep1(onStep1)} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="name">Campaign Name</Label>
+                <Label htmlFor="name">
+                  Campaign Name <span className="text-red-400">*</span>
+                </Label>
                 <Input
                   id="name"
-                  placeholder="Q1 Customer Outreach"
+                  placeholder="e.g. Q3 Product Launch"
                   {...registerStep1('name')}
                 />
-                {step1Errors.name && (
+                {step1Errors.name ? (
                   <p className="text-red-500 text-xs">{step1Errors.name.message}</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Used internally — recipients won't see this.</p>
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="subject">Email Subject</Label>
+                <Label htmlFor="subject">
+                  Email Subject Line <span className="text-red-400">*</span>
+                </Label>
                 <Input
                   id="subject"
-                  placeholder="Hi {{name}}, we have something for you..."
+                  placeholder="e.g. Hi {{name}}, exciting news from {{company}}!"
                   {...registerStep1('subject')}
+                  onChange={(e) => {
+                    registerStep1('subject').onChange(e);
+                    setSubjectValue(e.target.value);
+                    detectVars(bodyTemplate, e.target.value);
+                  }}
                 />
-                {step1Errors.subject && (
+                {step1Errors.subject ? (
                   <p className="text-red-500 text-xs">{step1Errors.subject.message}</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Variables like <code className="font-mono bg-muted px-1 rounded">{'{{name}}'}</code> will be replaced per recipient. Detected variables are listed on the next step.
+                  </p>
                 )}
-                <p className="text-xs text-muted-foreground">
-                  You can use Handlebars variables like &#123;&#123;name&#125;&#125; in the subject line too.
-                </p>
               </div>
               <div className="flex justify-end">
                 <Button type="submit">
@@ -324,22 +406,51 @@ export default function NewCampaignPage() {
                   </span>
                 </Label>
                 <Textarea
-                  className="font-mono text-sm min-h-[300px] resize-none"
-                  placeholder="Hi {{name}},&#10;&#10;We wanted to reach out about your upcoming meeting on {{date}}.&#10;&#10;Join here: {{meeting_link}}&#10;&#10;Best regards,&#10;The Team"
+                  className={cn(
+                    'font-mono text-sm min-h-[300px] resize-none',
+                    invalidVars.length > 0 && 'border-red-400 focus-visible:ring-red-400',
+                  )}
+                  placeholder={`Hi {{name}},\n\nWe wanted to reach out about your upcoming meeting on {{date}}.\n\nJoin here: {{meeting_link}}\n\nBest regards,\nThe Team`}
                   value={bodyTemplate}
                   onChange={(e) => {
                     setBodyTemplate(e.target.value);
-                    detectVars(e.target.value);
+                    detectVars(e.target.value, subjectValue);
                   }}
                 />
+                {/* Invalid variable errors */}
+                {invalidVars.length > 0 && (
+                  <div className="rounded-md border border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-800 p-3 space-y-1.5">
+                    <p className="text-xs font-semibold text-red-700 dark:text-red-400 flex items-center gap-1.5">
+                      <XCircle className="h-3.5 w-3.5" />
+                      {invalidVars.length} invalid variable{invalidVars.length > 1 ? 's' : ''} — fix before continuing:
+                    </p>
+                    <ul className="space-y-1">
+                      {invalidVars.map(({ raw, suggestion }) => (
+                        <li key={raw} className="text-xs text-red-600 dark:text-red-400 flex items-start gap-2">
+                          <span className="font-mono bg-red-100 dark:bg-red-900/50 px-1 py-0.5 rounded flex-shrink-0">{`{{${raw}}}`}</span>
+                          <span className="text-muted-foreground">
+                            → rename to{' '}
+                            <code className="font-mono text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/50 px-1 rounded">{`{{${suggestion}}}`}</code>
+                            {' '}(only a–z, 0–9, _ allowed)
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
               <div className="flex gap-3">
                 <Button variant="outline" onClick={() => setStep(1)}>
                   <ArrowLeft className="mr-2 h-4 w-4" /> Back
                 </Button>
-                <Button onClick={onStep2Next}>
+                <Button onClick={onStep2Next} disabled={invalidVars.length > 0}>
                   Next: Add Recipients <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
+                {invalidVars.length > 0 && (
+                  <p className="text-xs text-red-500 self-center">
+                    Fix {invalidVars.length} invalid variable{invalidVars.length > 1 ? 's' : ''} above to continue.
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -352,27 +463,34 @@ export default function NewCampaignPage() {
               </CardHeader>
               <CardContent>
                 {detectedVars.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    Type &#123;&#123;variableName&#125;&#125; in your template to detect variables
-                  </p>
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">
+                      No variables yet. Use <code className="font-mono bg-muted px-1 rounded">{'{{variable_name}}'}</code> in your subject or body.
+                    </p>
+                    <div className="rounded-md bg-muted/60 p-2.5 text-xs text-muted-foreground space-y-1">
+                      <p className="font-medium text-foreground">Naming rules:</p>
+                      <p>✓ lowercase letters, digits, underscores</p>
+                      <p>✗ spaces, hyphens, special chars</p>
+                      <p className="font-mono text-primary">{'{{first_name}}'} {'{{order_id}}'}</p>
+                    </div>
+                  </div>
                 ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {detectedVars.map((v) => (
-                      <span
-                        key={v}
-                        className="inline-flex items-center px-2 py-1 rounded-md bg-primary/10 text-primary text-xs font-mono font-medium"
-                      >
-                        {'{{'}{v}{'}}'}
-                      </span>
-                    ))}
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      {detectedVars.map((v) => (
+                        <span
+                          key={v}
+                          className="inline-flex items-center px-2 py-1 rounded-md bg-primary/10 text-primary text-xs font-mono font-medium"
+                        >
+                          {'{{'}{v}{'}}'}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground border-t pt-3">
+                      <strong className="text-foreground">Next step:</strong> upload a recipient file whose column headers match each variable above.
+                    </p>
                   </div>
                 )}
-                <div className="mt-4 pt-4 border-t">
-                  <p className="text-xs text-muted-foreground">
-                    <strong className="text-foreground">Tip:</strong> Your recipient file must have columns
-                    matching each variable.
-                  </p>
-                </div>
               </CardContent>
             </Card>
           </div>
@@ -505,16 +623,55 @@ export default function NewCampaignPage() {
                     </tbody>
                   </table>
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={addManualRow}>
-                    <Plus className="mr-1 h-4 w-4" /> Add Row
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={addManualColumn}>
-                    <Plus className="mr-1 h-4 w-4" /> Add Column
-                  </Button>
-                  <Button size="sm" onClick={handleManualSubmit} className="ml-auto">
-                    Save Recipients
-                  </Button>
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-2 items-start">
+                    <Button variant="outline" size="sm" onClick={addManualRow}>
+                      <Plus className="mr-1 h-4 w-4" /> Add Row
+                    </Button>
+                    {showAddColumn ? (
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1.5">
+                          <Input
+                            autoFocus
+                            value={newColumnName}
+                            onChange={(e) => {
+                              const { value, error } = transformColumnName(e.target.value);
+                              setNewColumnName(value);
+                              setColumnNameError(error);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') { e.preventDefault(); addManualColumn(); }
+                              if (e.key === 'Escape') { setShowAddColumn(false); setNewColumnName(''); setColumnNameError(''); }
+                            }}
+                            placeholder="e.g. first_name"
+                            className={cn('h-8 w-40 text-xs', columnNameError && 'border-red-400 focus-visible:ring-red-400')}
+                          />
+                          <Button size="sm" className="h-8 text-xs" onClick={addManualColumn} disabled={!!columnNameError}>
+                            Add
+                          </Button>
+                          <Button
+                            variant="ghost" size="sm"
+                            className="h-8 text-xs text-muted-foreground"
+                            onClick={() => { setShowAddColumn(false); setNewColumnName(''); setColumnNameError(''); }}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                        {columnNameError ? (
+                          <p className="text-xs text-red-500">{columnNameError}</p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">Only a–z, 0–9, and _ allowed.</p>
+                        )}
+                      </div>
+                    ) : (
+                      <Button variant="outline" size="sm" onClick={() => setShowAddColumn(true)}>
+                        <Plus className="mr-1 h-4 w-4" /> Add Column
+                      </Button>
+                    )}
+                    <Button size="sm" onClick={handleManualSubmit} className="ml-auto">
+                      Save Recipients
+                    </Button>
+                  </div>
                 </div>
               </TabsContent>
             </Tabs>

@@ -424,6 +424,161 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── Dashboard Preview ── */}
+      <section id="dashboard-preview" className="py-20 lg:py-28 bg-muted/30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">Dashboard Preview</p>
+            <h2 className="text-3xl lg:text-4xl font-bold text-foreground tracking-tight">
+              See exactly what you're getting
+            </h2>
+            <p className="mt-4 max-w-xl mx-auto text-muted-foreground text-base leading-relaxed">
+              A clean, real-time dashboard that shows every campaign, every stat, and every email delivery — at a glance.
+            </p>
+          </div>
+
+          {/* Browser Chrome Mockup */}
+          <div className="rounded-2xl border border-border shadow-2xl overflow-hidden bg-card max-w-5xl mx-auto">
+            {/* Browser top bar */}
+            <div className="flex items-center gap-2 px-4 py-3 bg-muted/60 border-b border-border">
+              <div className="flex gap-1.5">
+                <div className="h-3 w-3 rounded-full bg-red-400" />
+                <div className="h-3 w-3 rounded-full bg-yellow-400" />
+                <div className="h-3 w-3 rounded-full bg-green-400" />
+              </div>
+              <div className="flex-1 mx-4 h-6 rounded-md bg-background border border-border flex items-center px-3">
+                <span className="text-xs text-muted-foreground font-mono">mailflow.app/campaigns</span>
+              </div>
+            </div>
+
+            {/* App Shell */}
+            <div className="flex h-[520px] bg-background">
+              {/* Sidebar */}
+              <div className="w-56 border-r border-border bg-muted/20 flex flex-col p-4 gap-1 flex-shrink-0">
+                <div className="flex items-center gap-2 px-2 py-2 mb-4">
+                  <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center">
+                    <Mail className="h-3.5 w-3.5 text-primary-foreground" />
+                  </div>
+                  <span className="font-bold text-sm text-foreground">MailFlow</span>
+                </div>
+                {[
+                  { label: 'Campaigns', active: true },
+                  { label: 'New Campaign', active: false },
+                  { label: 'Settings', active: false },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium cursor-default ${
+                      item.active
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:bg-muted'
+                    }`}
+                  >
+                    <div className={`h-1.5 w-1.5 rounded-full ${item.active ? 'bg-primary' : 'bg-transparent'}`} />
+                    {item.label}
+                  </div>
+                ))}
+              </div>
+
+              {/* Main Content */}
+              <div className="flex-1 overflow-hidden p-6">
+                {/* Page header */}
+                <div className="flex items-center justify-between mb-5">
+                  <div>
+                    <h3 className="text-base font-bold text-foreground">Campaigns</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">4 campaigns total</p>
+                  </div>
+                  <div className="h-8 px-4 rounded-lg bg-primary text-primary-foreground text-xs font-semibold flex items-center gap-1.5 cursor-default">
+                    <span className="text-base leading-none">+</span> New Campaign
+                  </div>
+                </div>
+
+                {/* Stats row */}
+                <div className="grid grid-cols-4 gap-3 mb-5">
+                  {[
+                    { label: 'Total Sent', value: '48,200', color: 'text-green-600' },
+                    { label: 'Delivered', value: '47,891', color: 'text-blue-600' },
+                    { label: 'Failed', value: '309', color: 'text-red-500' },
+                    { label: 'Success Rate', value: '99.4%', color: 'text-primary' },
+                  ].map((stat) => (
+                    <div key={stat.label} className="rounded-xl border bg-card p-3">
+                      <p className={`text-lg font-bold tabular-nums ${stat.color}`}>{stat.value}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{stat.label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Filter pills */}
+                <div className="flex gap-2 mb-4">
+                  {['All', 'Completed', 'Sending', 'Draft'].map((s, i) => (
+                    <div
+                      key={s}
+                      className={`px-3 py-1 rounded-full text-xs font-medium border cursor-default ${
+                        i === 0
+                          ? 'bg-primary text-white border-primary'
+                          : 'bg-background border-border text-muted-foreground'
+                      }`}
+                    >
+                      {s}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Campaigns table */}
+                <div className="rounded-xl border border-border overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b bg-muted/40">
+                        {['Campaign', 'Status', 'Recipients', 'Sent', 'Success %', 'Created'].map((h) => (
+                          <th key={h} className="px-3 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        { name: 'Q3 Product Launch', subject: 'Exciting news from our team', status: 'COMPLETED', statusColor: 'text-green-600 bg-green-50 border-green-200', recipients: '12,400', sent: '12,348', rate: 99.6 },
+                        { name: 'Summer Sale Blast', subject: 'Up to 50% off — today only', status: 'SENDING', statusColor: 'text-blue-600 bg-blue-50 border-blue-200', recipients: '8,900', sent: '5,210', rate: 58.5 },
+                        { name: 'Onboarding Week 1', subject: 'Welcome! Here\'s how to get started', status: 'COMPLETED', statusColor: 'text-green-600 bg-green-50 border-green-200', recipients: '3,200', sent: '3,190', rate: 99.7 },
+                        { name: 'Re-engagement Flow', subject: 'We miss you — come back for 20% off', status: 'DRAFT', statusColor: 'text-gray-500 bg-gray-50 border-gray-200', recipients: '24,100', sent: '0', rate: 0 },
+                      ].map((row) => (
+                        <tr key={row.name} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                          <td className="px-3 py-2.5">
+                            <p className="font-medium text-foreground text-xs">{row.name}</p>
+                            <p className="text-[10px] text-muted-foreground truncate max-w-[140px]">{row.subject}</p>
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${row.statusColor}`}>
+                              <span className="h-1 w-1 rounded-full bg-current" />
+                              {row.status}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2.5 tabular-nums text-foreground">{row.recipients}</td>
+                          <td className="px-3 py-2.5 tabular-nums text-green-600 font-medium">{row.sent}</td>
+                          <td className="px-3 py-2.5">
+                            <div className="flex items-center gap-2">
+                              <div className="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                <div className="h-full bg-green-500 rounded-full" style={{ width: `${row.rate}%` }} />
+                              </div>
+                              <span className="tabular-nums text-muted-foreground">{row.rate}%</span>
+                            </div>
+                          </td>
+                          <td className="px-3 py-2.5 text-muted-foreground">Jul 1, 2025</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Caption */}
+          <p className="text-center text-sm text-muted-foreground mt-6">
+            Real-time data. No page refresh needed. Track every campaign as it sends.
+          </p>
+        </div>
+      </section>
+
       {/* ── Highlight Banner ── */}
       <section className="py-16 bg-primary">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

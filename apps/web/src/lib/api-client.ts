@@ -69,7 +69,15 @@ async function request<T>(
   let data: unknown;
   const contentType = response.headers.get('content-type');
 
-  if (contentType?.includes('application/json')) {
+  // Handle empty body responses (e.g. 204 No Content for DELETE)
+  if (!contentType || response.status === 204) {
+    if (!response.ok) {
+      throw new ApiError(response.status, `HTTP ${response.status}`);
+    }
+    return undefined as T;
+  }
+
+  if (contentType.includes('application/json')) {
     data = await response.json();
   } else {
     // For file downloads, return the response itself

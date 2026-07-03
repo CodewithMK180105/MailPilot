@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import {
-  User, Key, CheckCircle2, XCircle, Loader2, Save, Shield, ExternalLink,
+  User, Key, CheckCircle2, XCircle, Loader2, Save, Shield, ExternalLink, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +39,7 @@ export default function SettingsPage() {
   const [sendgridStatus, setSendgridStatus] = useState<SendgridStatus | null>(null);
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [isSgLoading, setIsSgLoading] = useState(false);
+  const [showSgGuide, setShowSgGuide] = useState(false);
 
   const { register: regProfile, handleSubmit: submitProfile, reset: resetProfile, formState: { errors: profileErrors } } =
     useForm<ProfileForm>({ resolver: zodResolver(profileSchema) });
@@ -183,24 +184,80 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {!sendgridStatus?.hasKey && (
-                <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 mb-6">
-                  <p className="text-sm font-semibold text-blue-800 mb-2">
-                    How to get your SendGrid API key:
-                  </p>
-                  <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
-                    <li>Create a free account at{' '}
-                      <a href="https://sendgrid.com" target="_blank" rel="noopener noreferrer"
-                        className="underline inline-flex items-center gap-0.5">
-                        sendgrid.com <ExternalLink className="h-3 w-3" />
-                      </a>
-                    </li>
-                    <li>Verify your sender email</li>
-                    <li>Settings → API Keys → Create API Key → Full Access</li>
-                    <li>Copy the key (starts with SG.)</li>
-                  </ol>
-                </div>
-              )}
+              {/* SendGrid Setup Guide — always visible */}
+              <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 mb-6">
+                <button
+                  type="button"
+                  onClick={() => setShowSgGuide(!showSgGuide)}
+                  className="w-full flex items-center justify-between p-4 text-left"
+                >
+                  <div className="flex items-center gap-2">
+                    <ExternalLink className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <span className="text-sm font-semibold text-blue-800 dark:text-blue-300">
+                      {sendgridStatus?.hasKey ? 'How to update your SendGrid API key' : 'How to get your SendGrid API key'}
+                    </span>
+                  </div>
+                  {showSgGuide
+                    ? <ChevronUp className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                    : <ChevronDown className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />}
+                </button>
+
+                {showSgGuide && (
+                  <div className="px-4 pb-4">
+                    <ol className="text-sm text-blue-700 dark:text-blue-400 space-y-2 list-decimal list-inside">
+                      <li>
+                        Create a free account at{' '}
+                        <a href="https://sendgrid.com" target="_blank" rel="noopener noreferrer"
+                          className="underline inline-flex items-center gap-0.5 font-medium">
+                          sendgrid.com <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </li>
+                      <li>Go to <strong>Settings → Sender Authentication</strong>.</li>
+                      <li>
+                        Under <strong>Single Sender Verification</strong>, click{' '}
+                        <strong>Create New Sender</strong>.
+                      </li>
+                      <li>
+                        Fill in the required details:
+                        <ul className="list-disc ml-6 mt-1 space-y-0.5">
+                          <li>From Name</li>
+                          <li>From Email Address</li>
+                          <li>Reply-To Email Address</li>
+                          <li>Company/Organization Name</li>
+                          <li>Company Address</li>
+                          <li>City, State, Country, Zip Code</li>
+                          <li>Sender Nickname</li>
+                        </ul>
+                      </li>
+                      <li>
+                        Click <strong>Create</strong>, then open your inbox and click the{' '}
+                        <strong>Verify Sender</strong> link sent by SendGrid.
+                      </li>
+                      <li>
+                        After verification, use the <strong>same verified email address</strong> as your{' '}
+                        <code className="bg-blue-100 dark:bg-blue-900/60 px-1 rounded text-xs">From</code>{' '}
+                        email in this application. Sending from any other address will fail.
+                      </li>
+                      <li>Go to <strong>Settings → API Keys</strong>.</li>
+                      <li>Click <strong>Create API Key</strong>.</li>
+                      <li>
+                        Select <strong>Full Access</strong> (or{' '}
+                        <strong>Restricted Access → Mail Send</strong> if you prefer a more secure key).
+                      </li>
+                      <li>
+                        Click <strong>Create &amp; View</strong>, then copy the API key immediately.
+                        It starts with{' '}
+                        <code className="bg-blue-100 dark:bg-blue-900/60 px-1 rounded text-xs">SG.</code>.
+                        You won&apos;t be able to view it again later.
+                      </li>
+                      <li>
+                        Paste the API key into the <strong>SendGrid API Key</strong> field below and
+                        click <strong>Verify &amp; Save</strong>.
+                      </li>
+                    </ol>
+                  </div>
+                )}
+              </div>
 
               {sendgridStatus?.hasKey && (
                 <div className="rounded-lg border bg-muted/30 p-4 mb-6">

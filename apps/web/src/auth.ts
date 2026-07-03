@@ -1,6 +1,5 @@
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
-import Google from 'next-auth/providers/google';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -50,10 +49,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
       },
     }),
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID ?? '',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
-    }),
   ],
 
   callbacks: {
@@ -62,30 +57,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token['accessToken'] = (user as Record<string, unknown>)['accessToken'] as string;
         token['role'] = (user as Record<string, unknown>)['role'] as string;
         token['id'] = user.id;
-      }
-
-      // Handle Google OAuth — exchange Google token for our JWT
-      if (account?.provider === 'google' && account.id_token) {
-        try {
-          const res = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/google`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ idToken: account.id_token }),
-            },
-          );
-          if (res.ok) {
-            const data = (await res.json()) as {
-              data: { user: { id: string; role: string }; token: string };
-            };
-            token['accessToken'] = data.data.token;
-            token['role'] = data.data.user.role;
-            token['id'] = data.data.user.id;
-          }
-        } catch {
-          // Google OAuth backend exchange failed
-        }
       }
 
       return token;

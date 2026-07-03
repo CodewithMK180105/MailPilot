@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import type { CampaignSummary } from "@email-platform/shared";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn, formatDateShort, getStatusConfig, successRate } from "@/lib/utils";
 import { useApiClient } from "@/hooks/use-api-client";
 
@@ -45,6 +46,8 @@ export default function CampaignsPage() {
   });
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const loadCampaigns = useCallback(
     async (page = 1, status = "") => {
@@ -84,15 +87,19 @@ export default function CampaignsPage() {
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Delete campaign "${name}"? This cannot be undone.`)) return;
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
     try {
-      await api.delete(`/campaigns/${id}`);
+      await api.delete(`/campaigns/${deleteTarget.id}`);
       toast.success("Campaign deleted");
       void loadCampaigns(pagination.page, statusFilter);
     } catch (err: unknown) {
       const e = err as { message?: string };
       toast.error(e.message ?? "Failed to delete campaign");
+    } finally {
+      setIsDeleting(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -200,7 +207,7 @@ export default function CampaignsPage() {
               size="icon"
               className="h-8 w-8"
               onClick={() => router.push(`/campaigns/${id}`)}
-              title="View"
+              title="View campaign"
             >
               <Eye className="h-4 w-4" />
             </Button>
@@ -209,7 +216,7 @@ export default function CampaignsPage() {
               size="icon"
               className="h-8 w-8"
               onClick={() => handleDuplicate(id)}
-              title="Duplicate"
+              title="Duplicate campaign"
             >
               <Copy className="h-4 w-4" />
             </Button>
@@ -217,9 +224,9 @@ export default function CampaignsPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
-                onClick={() => handleDelete(id, name)}
-                title="Delete"
+                className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                onClick={() => setDeleteTarget({ id, name })}
+                title="Delete campaign"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -249,6 +256,18 @@ export default function CampaignsPage() {
 
   return (
     <div className="p-8">
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+        title={`Delete "${deleteTarget?.name ?? ''}"?`}
+        description="This campaign and all its data will be permanently deleted. This action cannot be undone."
+        confirmLabel="Delete Campaign"
+        cancelLabel="Keep Campaign"
+        variant="destructive"
+        isLoading={isDeleting}
+        onConfirm={handleDelete}
+      />
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
