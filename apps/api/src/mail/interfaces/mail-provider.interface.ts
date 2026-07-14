@@ -2,6 +2,9 @@ export interface SendEmailOptions {
   to: string;
   subject: string;
   html: string;
+  text?: string;
+  replyTo?: string;
+  listUnsubscribeUrl?: string;
   from: {
     email: string;
     name: string;

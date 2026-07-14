@@ -17,6 +17,13 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useApiClient } from '@/hooks/use-api-client';
 import type { Campaign, UploadResult, ValidationResult } from '@email-platform/shared';
 import { cn } from '@/lib/utils';
@@ -87,6 +94,8 @@ export default function NewCampaignPage() {
   const [previewRecipientIdx, setPreviewRecipientIdx] = useState(0);
   const [previewHtml, setPreviewHtml] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Manual entry state
   const [manualColumns, setManualColumns] = useState<string[]>(['email', 'name']);
@@ -125,6 +134,15 @@ export default function NewCampaignPage() {
     }
     setDetectedVars(Array.from(validSet));
     setInvalidVars(Array.from(invalidMap.entries()).map(([raw, suggestion]) => ({ raw, suggestion })));
+  };
+
+  // ─── Subject Preview Resolver ─────────────────────────────────────────────
+  // Replaces {{variable}} placeholders with actual recipient values for preview.
+  const renderSubjectPreview = (subject: string, data: Record<string, string>): string => {
+    return subject.replace(/\{\{([^}]+)\}\}/g, (_, key: string) => {
+      const k = key.trim();
+      return data[k] ?? `{{${k}}}`;
+    });
   };
 
   // ─── Variable Name Sanitization ──────────────────────────────────────────
@@ -196,6 +214,7 @@ export default function NewCampaignPage() {
     onDrop: async (files) => {
       const file = files[0];
       if (!file || !campaign) return;
+      setIsUploading(true);
       try {
         const fd = new FormData();
         fd.append('file', file);
@@ -209,6 +228,8 @@ export default function NewCampaignPage() {
       } catch (err: unknown) {
         const e = err as { message?: string };
         toast.error(e.message ?? 'Upload failed');
+      } finally {
+        setIsUploading(false);
       }
     },
     onDropRejected: (rejections) => {
@@ -221,7 +242,8 @@ export default function NewCampaignPage() {
   });
 
   const handleManualSubmit = async () => {
-    if (!campaign) return;
+    if (!campaign || isValidating) return;
+    setIsValidating(true);
     try {
       const result = await api.post<{ totalRows: number; columns: string[]; preview: Record<string, string>[]; validation: ValidationResult }>(
         `/campaigns/${campaign.id}/recipients/manual`,
@@ -233,6 +255,8 @@ export default function NewCampaignPage() {
     } catch (err: unknown) {
       const e = err as { message?: string };
       toast.error(e.message ?? 'Failed to save recipients');
+    } finally {
+      setIsValidating(false);
     }
   };
 
@@ -527,16 +551,26 @@ export default function NewCampaignPage() {
                   )}
                 >
                   <input {...getInputProps()} />
-                  <Upload className="mx-auto h-10 w-10 text-muted-foreground mb-4" />
-                  <p className="text-sm font-medium text-foreground">
-                    {isDragActive ? 'Drop your file here' : 'Drag & drop your Excel or CSV file'}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Supports .xlsx, .xls, .csv — max 5MB, 10,000 rows
-                  </p>
-                  <Button variant="outline" size="sm" className="mt-4">
-                    Browse Files
-                  </Button>
+                  {isUploading ? (
+                    <>
+                      <span className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent block mb-4" />
+                      <p className="text-sm font-medium text-foreground">Validating recipients…</p>
+                      <p className="text-xs text-muted-foreground mt-1">Checking dynamic variables…</p>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="mx-auto h-10 w-10 text-muted-foreground mb-4" />
+                      <p className="text-sm font-medium text-foreground">
+                        {isDragActive ? 'Drop your file here' : 'Drag & drop your Excel or CSV file'}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Supports .xlsx, .xls, .csv — max 5MB, 10,000 rows
+                      </p>
+                      <Button variant="outline" size="sm" className="mt-4" disabled={isUploading}>
+                        Browse Files
+                      </Button>
+                    </>
+                  )}
                 </div>
 
                 {uploadResult && (
@@ -660,7 +694,10 @@ export default function NewCampaignPage() {
                         {columnNameError ? (
                           <p className="text-xs text-red-500">{columnNameError}</p>
                         ) : (
-                          <p className="text-xs text-muted-foreground">Only a–z, 0–9, and _ allowed.</p>
+                          <p className="text-xs text-muted-foreground">
+                            Uppercase letters are automatically lowercased · Spaces become{' '}
+                            <code className="font-mono bg-muted px-1 rounded">_</code> · Special characters are not allowed
+                          </p>
                         )}
                       </div>
                     ) : (
@@ -668,9 +705,17 @@ export default function NewCampaignPage() {
                         <Plus className="mr-1 h-4 w-4" /> Add Column
                       </Button>
                     )}
-                    <Button size="sm" onClick={handleManualSubmit} className="ml-auto">
-                      Save Recipients
-                    </Button>
+                    <div className="ml-auto flex items-center gap-2">
+                      {isValidating && (
+                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                          Validating recipients…
+                        </span>
+                      )}
+                      <Button size="sm" onClick={handleManualSubmit} disabled={isValidating}>
+                        {isValidating ? 'Saving…' : 'Save Recipients'}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </TabsContent>
@@ -746,21 +791,25 @@ export default function NewCampaignPage() {
             {uploadResult && (
               <div className="flex items-center gap-3">
                 <Label className="text-sm">Preview recipient:</Label>
-                <select
-                  className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm"
-                  value={previewRecipientIdx}
-                  onChange={(e) => {
-                    const idx = parseInt(e.target.value);
+                <Select
+                  value={String(previewRecipientIdx)}
+                  onValueChange={(val) => {
+                    const idx = parseInt(val);
                     setPreviewRecipientIdx(idx);
                     void loadPreview(idx);
                   }}
                 >
-                  {uploadResult.preview.map((row, i) => (
-                    <option key={i} value={i}>
-                      {row['email'] ?? `Row ${i + 1}`}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="h-9 w-64 text-sm">
+                    <SelectValue placeholder="Select a recipient" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {uploadResult.preview.map((row, i) => (
+                      <SelectItem key={i} value={String(i)}>
+                        {row['email'] ?? `Row ${i + 1}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
 
@@ -768,7 +817,10 @@ export default function NewCampaignPage() {
               <div className="bg-white border-b px-4 py-2 text-xs text-muted-foreground">
                 <strong>To:</strong>{' '}
                 {uploadResult?.preview[previewRecipientIdx]?.['email'] ?? 'recipient@example.com'} •{' '}
-                <strong>Subject:</strong> {getStep1Values('subject')}
+                <strong>Subject:</strong>{' '}
+                {uploadResult?.preview[previewRecipientIdx]
+                  ? renderSubjectPreview(getStep1Values('subject'), uploadResult.preview[previewRecipientIdx]!)
+                  : getStep1Values('subject')}
               </div>
               {previewHtml ? (
                 <iframe

@@ -49,6 +49,9 @@ export class EmailConsumer extends WorkerHost {
         to,
         subject,
         html,
+        text: payload.text,
+        replyTo: payload.replyTo,
+        listUnsubscribeUrl: payload.listUnsubscribeUrl,
         from: { email: fromEmail, name: fromName },
         apiKey,
       });
@@ -118,14 +121,17 @@ export class EmailConsumer extends WorkerHost {
       select: { status: true, totalRecipients: true, sentCount: true, failedCount: true },
     });
 
-    if (!campaign || campaign.status !== 'SENDING') return;
+    // Also handle PAUSED: BullMQ keeps processing already-queued jobs after a pause,
+    // so the last in-flight job completing must still be able to finalize the campaign.
+    if (!campaign || !['SENDING', 'PAUSED'].includes(campaign.status)) return;
 
     if (campaign.sentCount + campaign.failedCount >= campaign.totalRecipients) {
+      const finalStatus = campaign.failedCount > 0 ? 'FAILED' : 'COMPLETED';
       await this.prisma.campaign.update({
         where: { id: campaignId },
-        data: { status: 'COMPLETED', completedAt: new Date() },
+        data: { status: finalStatus, completedAt: new Date() },
       });
-      this.logger.log(`🎉 Campaign ${campaignId} COMPLETED`);
+      this.logger.log(`🎉 Campaign ${campaignId} marked as ${finalStatus}`);
     }
   }
 }

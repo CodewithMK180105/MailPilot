@@ -15,18 +15,41 @@ export class SendGridProvider implements IMailProvider {
     sgMail.setApiKey(options.apiKey);
 
     try {
+      const fromDomain = options.from.email.split('@')[1] || 'mailflow.app';
+      const randomId = Math.random().toString(36).substring(2, 15);
+      const messageId = `<${Date.now()}.${randomId}@${fromDomain}>`;
+
+      const headers: Record<string, string> = {
+        'Message-ID': messageId,
+      };
+
+      if (options.listUnsubscribeUrl) {
+        headers['List-Unsubscribe'] = `<${options.listUnsubscribeUrl}>`;
+      }
+
+      // Strip HTML tags for clean plain-text fallback
+      const plainText = options.text || options.html
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
       const [response] = await sgMail.send({
         to: options.to,
         from: {
           email: options.from.email,
           name: options.from.name,
         },
+        replyTo: options.replyTo || options.from.email,
         subject: options.subject,
         html: options.html,
+        text: plainText,
+        headers,
       });
 
-      const messageId = response.headers?.['x-message-id'] as string | undefined;
-      return { success: true, messageId };
+      const sgMessageId = response.headers?.['x-message-id'] as string | undefined;
+      return { success: true, messageId: sgMessageId || messageId };
     } catch (err: unknown) {
       const error = err as { code?: number; response?: { body?: { errors?: { message: string }[] } } };
       const statusCode = error.code ?? 0;

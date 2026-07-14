@@ -197,6 +197,7 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activePreview, setActivePreview] = useState('campaigns-list');
   const { data: session } = useSession();
   const isLoggedIn = !!session;
 
@@ -427,7 +428,7 @@ export default function LandingPage() {
       {/* ── Dashboard Preview ── */}
       <section id="dashboard-preview" className="py-20 lg:py-28 bg-muted/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
+          <div className="text-center mb-8">
             <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">Dashboard Preview</p>
             <h2 className="text-3xl lg:text-4xl font-bold text-foreground tracking-tight">
               See exactly what you're getting
@@ -435,6 +436,30 @@ export default function LandingPage() {
             <p className="mt-4 max-w-xl mx-auto text-muted-foreground text-base leading-relaxed">
               A clean, real-time dashboard that shows every campaign, every stat, and every email delivery — at a glance.
             </p>
+          </div>
+
+          {/* Toggle Tabs */}
+          <div className="flex flex-wrap justify-center gap-2 mb-8 max-w-4xl mx-auto">
+            {[
+              { id: 'campaigns-list', name: 'Campaign page' },
+              { id: 'reports', name: 'Reports page' },
+              { id: 'view-draft', name: 'View Mail Draft page' },
+              { id: 'create-draft', name: 'Create Mail Draft page' },
+              { id: 'subject-editor', name: 'Subject editor' },
+              { id: 'add-recipients', name: 'Add Email Recipients' },
+            ].map((preview) => (
+              <button
+                key={preview.id}
+                onClick={() => setActivePreview(preview.id)}
+                className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 ${
+                  activePreview === preview.id
+                    ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-105'
+                    : 'bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                }`}
+              >
+                {preview.name}
+              </button>
+            ))}
           </div>
 
           {/* Browser Chrome Mockup */}
@@ -447,14 +472,21 @@ export default function LandingPage() {
                 <div className="h-3 w-3 rounded-full bg-green-400" />
               </div>
               <div className="flex-1 mx-4 h-6 rounded-md bg-background border border-border flex items-center px-3">
-                <span className="text-xs text-muted-foreground font-mono">mailflow.app/campaigns</span>
+                <span className="text-xs text-muted-foreground font-mono">
+                  {activePreview === 'campaigns-list' && 'mailflow.app/campaigns'}
+                  {activePreview === 'reports' && 'mailflow.app/campaigns/q3-product-launch/report'}
+                  {activePreview === 'view-draft' && 'mailflow.app/campaigns/q3-product-launch/preview'}
+                  {activePreview === 'create-draft' && 'mailflow.app/campaigns/new'}
+                  {activePreview === 'subject-editor' && 'mailflow.app/campaigns/new?step=2'}
+                  {activePreview === 'add-recipients' && 'mailflow.app/campaigns/new?step=3'}
+                </span>
               </div>
             </div>
 
             {/* App Shell */}
-            <div className="flex h-[520px] bg-background">
+            <div className="flex h-[540px] bg-background">
               {/* Sidebar */}
-              <div className="w-56 border-r border-border bg-muted/20 flex flex-col p-4 gap-1 flex-shrink-0">
+              <div className="w-48 sm:w-56 border-r border-border bg-muted/20 flex flex-col p-4 gap-1 flex-shrink-0">
                 <div className="flex items-center gap-2 px-2 py-2 mb-4">
                   <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center">
                     <Mail className="h-3.5 w-3.5 text-primary-foreground" />
@@ -462,8 +494,14 @@ export default function LandingPage() {
                   <span className="font-bold text-sm text-foreground">MailFlow</span>
                 </div>
                 {[
-                  { label: 'Campaigns', active: true },
-                  { label: 'New Campaign', active: false },
+                  {
+                    label: 'Campaigns',
+                    active: ['campaigns-list', 'reports'].includes(activePreview),
+                  },
+                  {
+                    label: 'New Campaign',
+                    active: ['create-draft', 'subject-editor', 'add-recipients', 'view-draft'].includes(activePreview),
+                  },
                   { label: 'Settings', active: false },
                 ].map((item) => (
                   <div
@@ -480,94 +518,357 @@ export default function LandingPage() {
                 ))}
               </div>
 
-              {/* Main Content */}
-              <div className="flex-1 overflow-hidden p-6">
-                {/* Page header */}
-                <div className="flex items-center justify-between mb-5">
-                  <div>
-                    <h3 className="text-base font-bold text-foreground">Campaigns</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">4 campaigns total</p>
-                  </div>
-                  <div className="h-8 px-4 rounded-lg bg-primary text-primary-foreground text-xs font-semibold flex items-center gap-1.5 cursor-default">
-                    <span className="text-base leading-none">+</span> New Campaign
-                  </div>
-                </div>
-
-                {/* Stats row */}
-                <div className="grid grid-cols-4 gap-3 mb-5">
-                  {[
-                    { label: 'Total Sent', value: '48,200', color: 'text-green-600' },
-                    { label: 'Delivered', value: '47,891', color: 'text-blue-600' },
-                    { label: 'Failed', value: '309', color: 'text-red-500' },
-                    { label: 'Success Rate', value: '99.4%', color: 'text-primary' },
-                  ].map((stat) => (
-                    <div key={stat.label} className="rounded-xl border bg-card p-3">
-                      <p className={`text-lg font-bold tabular-nums ${stat.color}`}>{stat.value}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{stat.label}</p>
+              {/* Main Content Area */}
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 transition-all duration-300">
+                {/* View 1: Campaigns List */}
+                {activePreview === 'campaigns-list' && (
+                  <div className="space-y-5 animate-in fade-in duration-300">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-base font-bold text-foreground">Campaigns</h3>
+                        <p className="text-xs text-muted-foreground mt-0.5">4 campaigns total</p>
+                      </div>
+                      <div className="h-8 px-4 rounded-lg bg-primary text-primary-foreground text-xs font-semibold flex items-center gap-1.5 cursor-default">
+                        <span className="text-base leading-none">+</span> New Campaign
+                      </div>
                     </div>
-                  ))}
-                </div>
 
-                {/* Filter pills */}
-                <div className="flex gap-2 mb-4">
-                  {['All', 'Completed', 'Sending', 'Draft'].map((s, i) => (
-                    <div
-                      key={s}
-                      className={`px-3 py-1 rounded-full text-xs font-medium border cursor-default ${
-                        i === 0
-                          ? 'bg-primary text-white border-primary'
-                          : 'bg-background border-border text-muted-foreground'
-                      }`}
-                    >
-                      {s}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Campaigns table */}
-                <div className="rounded-xl border border-border overflow-hidden">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b bg-muted/40">
-                        {['Campaign', 'Status', 'Recipients', 'Sent', 'Success %', 'Created'].map((h) => (
-                          <th key={h} className="px-3 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {[
-                        { name: 'Q3 Product Launch', subject: 'Exciting news from our team', status: 'COMPLETED', statusColor: 'text-green-600 bg-green-50 border-green-200', recipients: '12,400', sent: '12,348', rate: 99.6 },
-                        { name: 'Summer Sale Blast', subject: 'Up to 50% off — today only', status: 'SENDING', statusColor: 'text-blue-600 bg-blue-50 border-blue-200', recipients: '8,900', sent: '5,210', rate: 58.5 },
-                        { name: 'Onboarding Week 1', subject: 'Welcome! Here\'s how to get started', status: 'COMPLETED', statusColor: 'text-green-600 bg-green-50 border-green-200', recipients: '3,200', sent: '3,190', rate: 99.7 },
-                        { name: 'Re-engagement Flow', subject: 'We miss you — come back for 20% off', status: 'DRAFT', statusColor: 'text-gray-500 bg-gray-50 border-gray-200', recipients: '24,100', sent: '0', rate: 0 },
-                      ].map((row) => (
-                        <tr key={row.name} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
-                          <td className="px-3 py-2.5">
-                            <p className="font-medium text-foreground text-xs">{row.name}</p>
-                            <p className="text-[10px] text-muted-foreground truncate max-w-[140px]">{row.subject}</p>
-                          </td>
-                          <td className="px-3 py-2.5">
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${row.statusColor}`}>
-                              <span className="h-1 w-1 rounded-full bg-current" />
-                              {row.status}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2.5 tabular-nums text-foreground">{row.recipients}</td>
-                          <td className="px-3 py-2.5 tabular-nums text-green-600 font-medium">{row.sent}</td>
-                          <td className="px-3 py-2.5">
-                            <div className="flex items-center gap-2">
-                              <div className="w-12 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                                <div className="h-full bg-green-500 rounded-full" style={{ width: `${row.rate}%` }} />
-                              </div>
-                              <span className="tabular-nums text-muted-foreground">{row.rate}%</span>
-                            </div>
-                          </td>
-                          <td className="px-3 py-2.5 text-muted-foreground">Jul 1, 2025</td>
-                        </tr>
+                        { label: 'Total Sent', value: '48,200', color: 'text-green-600' },
+                        { label: 'Delivered', value: '47,891', color: 'text-blue-600' },
+                        { label: 'Failed', value: '309', color: 'text-red-500' },
+                        { label: 'Success Rate', value: '99.4%', color: 'text-primary' },
+                      ].map((stat) => (
+                        <div key={stat.label} className="rounded-xl border bg-card p-3">
+                          <p className={`text-lg font-bold tabular-nums ${stat.color}`}>{stat.value}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{stat.label}</p>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      {['All', 'Completed', 'Sending', 'Draft'].map((s, i) => (
+                        <div
+                          key={s}
+                          className={`px-3 py-1 rounded-full text-[10px] sm:text-xs font-medium border cursor-default ${
+                            i === 0
+                              ? 'bg-primary text-white border-primary'
+                              : 'bg-background border-border text-muted-foreground'
+                          }`}
+                        >
+                          {s}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="rounded-xl border border-border overflow-hidden">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b bg-muted/40">
+                            {['Campaign', 'Status', 'Recipients', 'Sent', 'Success %', 'Created'].map((h) => (
+                              <th key={h} className="px-3 py-2 text-left font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[
+                            { name: 'Q3 Product Launch', subject: 'Exciting news from our team', status: 'COMPLETED', statusColor: 'text-green-600 bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-900', recipients: '12,400', sent: '12,348', rate: 99.6 },
+                            { name: 'Summer Sale Blast', subject: 'Up to 50% off — today only', status: 'SENDING', statusColor: 'text-blue-600 bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-900', recipients: '8,900', sent: '5,210', rate: 58.5 },
+                            { name: 'Onboarding Week 1', subject: 'Welcome! Here\'s how to get started', status: 'COMPLETED', statusColor: 'text-green-600 bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-900', recipients: '3,200', sent: '3,190', rate: 99.7 },
+                            { name: 'Re-engagement Flow', subject: 'We miss you — come back for 20% off', status: 'DRAFT', statusColor: 'text-gray-500 bg-gray-50 border-gray-200 dark:bg-gray-900/50 dark:border-gray-800', recipients: '24,100', sent: '0', rate: 0 },
+                          ].map((row) => (
+                            <tr key={row.name} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                              <td className="px-3 py-2.5">
+                                <p className="font-medium text-foreground text-xs">{row.name}</p>
+                                <p className="text-[10px] text-muted-foreground truncate max-w-[100px] sm:max-w-[140px]">{row.subject}</p>
+                              </td>
+                              <td className="px-3 py-2.5">
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${row.statusColor}`}>
+                                  <span className="h-1 w-1 rounded-full bg-current" />
+                                  {row.status}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2.5 tabular-nums text-foreground">{row.recipients}</td>
+                              <td className="px-3 py-2.5 tabular-nums text-green-600 font-medium">{row.sent}</td>
+                              <td className="px-3 py-2.5">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-10 sm:w-12 h-1.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                                    <div className="h-full bg-green-500 rounded-full" style={{ width: `${row.rate}%` }} />
+                                  </div>
+                                  <span className="tabular-nums text-muted-foreground">{row.rate}%</span>
+                                </div>
+                              </td>
+                              <td className="px-3 py-2.5 text-muted-foreground">Jul 1, 2025</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* View 2: Reports Page */}
+                {activePreview === 'reports' && (
+                  <div className="space-y-5 animate-in fade-in duration-300">
+                    <div className="flex items-center justify-between border-b pb-4">
+                      <div>
+                        <h3 className="text-base font-bold text-foreground">Q3 Product Launch Report</h3>
+                        <p className="text-xs text-muted-foreground mt-0.5">Completed on Jul 1, 2025</p>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold border text-green-600 bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-900">
+                        COMPLETED
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {[
+                        { label: 'Emails Sent', value: '12,348', color: 'text-foreground' },
+                        { label: 'Bounces / Failed', value: '52', color: 'text-red-500' },
+                        { label: 'Deliverability', value: '99.6%', color: 'text-green-600' },
+                        { label: 'Open Rate', value: '68.4%', color: 'text-primary' },
+                      ].map((stat) => (
+                        <div key={stat.label} className="rounded-xl border bg-card p-3">
+                          <p className={`text-lg font-bold tabular-nums ${stat.color}`}>{stat.value}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{stat.label}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="rounded-xl border bg-card p-4 space-y-3">
+                        <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">Delivery Breakdown</h4>
+                        <div className="space-y-2.5">
+                          <div>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="text-muted-foreground">Delivered</span>
+                              <span className="font-medium text-foreground">12,348 (99.6%)</span>
+                            </div>
+                            <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                              <div className="h-full bg-green-500 rounded-full" style={{ width: '99.6%' }} />
+                            </div>
+                          </div>
+                          <div>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="text-muted-foreground">Bounced / Failed</span>
+                              <span className="font-medium text-foreground">52 (0.4%)</span>
+                            </div>
+                            <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                              <div className="h-full bg-red-500 rounded-full" style={{ width: '0.4%' }} />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border bg-card p-4 space-y-3">
+                        <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">Recent Activity Logs</h4>
+                        <div className="space-y-2 text-xs font-mono text-muted-foreground">
+                          <div className="flex justify-between border-b pb-1 border-border">
+                            <span className="text-foreground truncate max-w-[120px] sm:max-w-[180px]">jane.doe@example.com</span>
+                            <span className="text-green-600 font-semibold">✓ SENT</span>
+                          </div>
+                          <div className="flex justify-between border-b pb-1 border-border">
+                            <span className="text-foreground truncate max-w-[120px] sm:max-w-[180px]">john.smith@gmail.com</span>
+                            <span className="text-green-600 font-semibold">✓ SENT</span>
+                          </div>
+                          <div className="flex justify-between border-b pb-1 border-border">
+                            <span className="text-foreground truncate max-w-[120px] sm:max-w-[180px]">bounce-test@invalid.net</span>
+                            <span className="text-red-500 font-semibold">✗ FAILED (5.1.1)</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* View 3: View Mail Draft page */}
+                {activePreview === 'view-draft' && (
+                  <div className="space-y-4 animate-in fade-in duration-300">
+                    <div className="flex items-center justify-between border-b pb-4">
+                      <div>
+                        <h3 className="text-base font-bold text-foreground">View Mail Draft</h3>
+                        <p className="text-xs text-muted-foreground mt-0.5">Previewing template render for recipient</p>
+                      </div>
+                      <div className="flex items-center gap-2 border px-3 py-1 rounded-md bg-muted/40 text-xs">
+                        <span className="text-muted-foreground">Recipient:</span>
+                        <span className="font-semibold text-foreground">john@example.com</span>
+                      </div>
+                    </div>
+
+                    <div className="border rounded-xl bg-card overflow-hidden text-xs">
+                      <div className="bg-muted/30 px-4 py-3 border-b space-y-1.5">
+                        <div className="flex gap-2">
+                          <span className="text-muted-foreground w-12">From:</span>
+                          <span className="font-semibold text-foreground">growth@mailflow.app</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <span className="text-muted-foreground w-12">To:</span>
+                          <span className="font-semibold text-foreground">john@example.com</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <span className="text-muted-foreground w-12">Subject:</span>
+                          <span className="font-bold text-foreground">Welcome John, exciting news from MailFlow!</span>
+                        </div>
+                      </div>
+                      <div className="p-4 bg-background min-h-[160px] text-muted-foreground space-y-3 font-sans leading-relaxed">
+                        <p>Hi John,</p>
+                        <p>
+                          We are absolutely thrilled to welcome you to <strong>MailFlow</strong>. Your bulk email dashboard is now fully set up and ready to run.
+                        </p>
+                        <p>
+                          Let us know if you have any questions along the way.
+                        </p>
+                        <p className="pt-2 border-t text-[10px]">
+                          Best regards,<br />
+                          <strong>The MailFlow Team</strong>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* View 4: Create Mail Draft page */}
+                {activePreview === 'create-draft' && (
+                  <div className="space-y-4 animate-in fade-in duration-300">
+                    <div>
+                      <h3 className="text-base font-bold text-foreground">Create Mail Draft</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">Step 1: Enter basic campaign details</p>
+                    </div>
+
+                    <div className="space-y-4 max-w-xl">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-foreground">Campaign Name</label>
+                        <input
+                          type="text"
+                          readOnly
+                          value="Q3 Product Launch"
+                          className="w-full text-xs px-3 py-2 border rounded-lg bg-muted/40 cursor-default focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-foreground">Email Subject Line</label>
+                        <input
+                          type="text"
+                          readOnly
+                          value="Hi {{name}}, exciting news from {{company}}!"
+                          className="w-full text-xs px-3 py-2 border rounded-lg bg-muted/40 cursor-default focus:outline-none"
+                        />
+                      </div>
+
+                      <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg">
+                        <p className="text-xs text-primary leading-relaxed">
+                          <strong>💡 Pro Tip:</strong> Use double curly braces like <code className="font-mono bg-primary/10 px-1 py-0.5 rounded">{'{{variable}}'}</code> to dynamically substitute values from your recipient data sheet (e.g. name, promo_code).
+                        </p>
+                      </div>
+
+                      <div className="flex justify-end pt-2">
+                        <button className="px-4 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold">
+                          Next: Design Body
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* View 5: Subject editor */}
+                {activePreview === 'subject-editor' && (
+                  <div className="space-y-4 animate-in fade-in duration-300">
+                    <div>
+                      <h3 className="text-base font-bold text-foreground">Design Email Template</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">Step 2: Compose template body & preview variables</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="sm:col-span-2 space-y-1.5">
+                        <label className="text-xs font-semibold text-foreground flex justify-between">
+                          <span>Body Template (Handlebars / HTML)</span>
+                          <span className="text-[10px] text-primary">Rich HTML enabled</span>
+                        </label>
+                        <textarea
+                          readOnly
+                          rows={7}
+                          className="w-full text-xs px-3 py-2 border rounded-lg bg-muted/40 cursor-default font-mono focus:outline-none resize-none leading-relaxed"
+                          value={`Hi {{name}},\n\nHere is your registration link for {{event_name}}:\n{{link}}\n\nSee you there!\n- The Team`}
+                        />
+                      </div>
+
+                      <div className="rounded-xl border bg-card p-4 space-y-3 h-fit">
+                        <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">Detected Variables</h4>
+                        <div className="space-y-1.5">
+                          {['name', 'event_name', 'link'].map((v) => (
+                            <div key={v} className="flex items-center justify-between text-xs px-2.5 py-1 rounded bg-muted/50 border border-border">
+                              <span className="font-mono text-primary font-medium">{`{{${v}}}`}</span>
+                              <span className="text-[10px] text-muted-foreground">Required</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-500 pt-2 font-medium">
+                          <Check className="h-3.5 w-3.5" /> Variables validated
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between pt-2 border-t">
+                      <button className="px-4 py-1.5 rounded-lg border border-border text-xs font-semibold text-muted-foreground">
+                        Back
+                      </button>
+                      <button className="px-4 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold">
+                        Next: Add Recipients
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* View 6: Add Email Recipients page */}
+                {activePreview === 'add-recipients' && (
+                  <div className="space-y-4 animate-in fade-in duration-300">
+                    <div>
+                      <h3 className="text-base font-bold text-foreground">Add Recipients</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">Step 3: Upload contact sheet matching variables</p>
+                    </div>
+
+                    <div className="border-2 border-dashed border-border rounded-xl p-8 text-center bg-muted/10">
+                      <Zap className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+                      <p className="text-xs font-medium text-foreground">Drag & drop your Excel or CSV file</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">Supports .xlsx, .xls, .csv up to 5MB</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-semibold text-foreground">Upload Preview (First 2 Rows)</label>
+                        <span className="text-[10px] text-green-600 font-semibold">✓ 4 variables matched</span>
+                      </div>
+
+                      <div className="rounded-lg border border-border overflow-hidden">
+                        <table className="w-full text-[10px] sm:text-xs">
+                          <thead>
+                            <tr className="border-b bg-muted/30">
+                              <th className="px-2 py-1.5 text-left text-muted-foreground font-semibold">email</th>
+                              <th className="px-2 py-1.5 text-left text-muted-foreground font-semibold">name</th>
+                              <th className="px-2 py-1.5 text-left text-muted-foreground font-semibold">event_name</th>
+                              <th className="px-2 py-1.5 text-left text-muted-foreground font-semibold">link</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr className="border-b last:border-0">
+                              <td className="px-2 py-1.5 text-foreground font-medium">john@example.com</td>
+                              <td className="px-2 py-1.5 text-muted-foreground">John</td>
+                              <td className="px-2 py-1.5 text-muted-foreground">Product Launch</td>
+                              <td className="px-2 py-1.5 text-primary font-mono text-[9px] truncate max-w-[100px]">https://event.com/1</td>
+                            </tr>
+                            <tr className="border-b last:border-0">
+                              <td className="px-2 py-1.5 text-foreground font-medium">jane@example.com</td>
+                              <td className="px-2 py-1.5 text-muted-foreground">Jane</td>
+                              <td className="px-2 py-1.5 text-muted-foreground">Product Launch</td>
+                              <td className="px-2 py-1.5 text-primary font-mono text-[9px] truncate max-w-[100px]">https://event.com/2</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

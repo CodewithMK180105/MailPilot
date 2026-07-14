@@ -295,14 +295,17 @@ export class CampaignsService {
       select: { status: true, totalRecipients: true, sentCount: true, failedCount: true },
     });
 
-    if (!campaign || campaign.status !== 'SENDING') return;
+    // Also handle PAUSED: in-flight BullMQ jobs continue after pause, so the last
+    // completing job must still be able to finalize the campaign state.
+    if (!campaign || !['SENDING', 'PAUSED'].includes(campaign.status)) return;
 
     if (campaign.sentCount + campaign.failedCount >= campaign.totalRecipients) {
+      const finalStatus = campaign.failedCount > 0 ? 'FAILED' : 'COMPLETED';
       await this.prisma.campaign.update({
         where: { id: campaignId },
-        data: { status: 'COMPLETED', completedAt: new Date() },
+        data: { status: finalStatus, completedAt: new Date() },
       });
-      this.logger.log(`Campaign ${campaignId} marked as COMPLETED`);
+      this.logger.log(`Campaign ${campaignId} marked as ${finalStatus}`);
     }
   }
 

@@ -456,12 +456,17 @@ export default function CampaignDetailPage() {
                 <Pause className="mr-2 h-4 w-4" /> Pause
               </Button>
             )}
-            {campaign.status === "PAUSED" && (
+            {(campaign.status === "PAUSED" || campaign.status === "FAILED") && (
               <Button
                 onClick={() => handleAction("resume")}
-                className="bg-green-600 hover:bg-green-700"
+                className={
+                  campaign.status === "FAILED"
+                    ? "bg-orange-600 hover:bg-orange-700"
+                    : "bg-green-600 hover:bg-green-700"
+                }
               >
-                <Play className="mr-2 h-4 w-4" /> Resume
+                <Play className="mr-2 h-4 w-4" />
+                {campaign.status === "FAILED" ? "Retry / Resume" : "Resume"}
               </Button>
             )}
             {["SENDING", "PAUSED"].includes(campaign.status) && (

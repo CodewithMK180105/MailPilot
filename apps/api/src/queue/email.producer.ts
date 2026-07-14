@@ -56,16 +56,24 @@ export class EmailProducer {
       for (const recipient of batch) {
         const recipientData = recipient.data as Record<string, string>;
 
-        // Render HTML body
         const html = this.templateService.render(
           campaign.bodyTemplate,
           recipientData,
         );
-        // Render subject (support variables in subject too)
         const subject = this.templateService.renderRaw(
           campaign.subject,
           recipientData,
         );
+
+        const plainText = html
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        const listUnsubscribeUrl = `${appUrl}/unsubscribe?campaignId=${campaignId}&recipientId=${recipient.id}`;
 
         // Create EmailJob record in DB
         const emailJob = await this.prisma.emailJob.create({
@@ -84,6 +92,9 @@ export class EmailProducer {
           to: recipient.email,
           subject,
           html,
+          text: plainText,
+          replyTo: user.sendgridFromEmail ?? "",
+          listUnsubscribeUrl,
           fromEmail: user.sendgridFromEmail ?? "",
           fromName: user.sendgridFromName ?? "",
           encryptedApiKey: user.sendgridApiKeyEncrypted,
@@ -163,12 +174,31 @@ export class EmailProducer {
       where: {
         campaignId,
         status: { in: ["PENDING", "FAILED"] },
-        attemptCount: { lt: 3 },
       },
       include: { recipient: true },
     });
 
     if (pendingJobs.length === 0) return 0;
+
+    const failedJobsCount = pendingJobs.filter((j) => j.status === "FAILED").length;
+    if (failedJobsCount > 0) {
+      await this.prisma.campaign.update({
+        where: { id: campaignId },
+        data: { failedCount: { decrement: failedJobsCount } },
+      });
+    }
+
+    // Reset status to PENDING and attemptCount to 0 for all selected jobs
+    await this.prisma.emailJob.updateMany({
+      where: {
+        id: { in: pendingJobs.map((j) => j.id) },
+      },
+      data: {
+        status: "PENDING",
+        attemptCount: 0,
+        failureReason: null,
+      },
+    });
 
     const bulkJobs = await Promise.all(
       pendingJobs.map(async (emailJob) => {
@@ -182,6 +212,16 @@ export class EmailProducer {
           recipientData,
         );
 
+        const plainText = html
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        const listUnsubscribeUrl = `${appUrl}/unsubscribe?campaignId=${campaignId}&recipientId=${emailJob.recipientId}`;
+
         if (!user.sendgridApiKeyEncrypted) {
           throw new Error("User has no SendGrid API key configured.");
         }
@@ -194,6 +234,9 @@ export class EmailProducer {
           to: emailJob.recipient.email,
           subject,
           html,
+          text: plainText,
+          replyTo: user.sendgridFromEmail ?? "",
+          listUnsubscribeUrl,
           fromEmail: user.sendgridFromEmail ?? "",
           fromName: user.sendgridFromName ?? "",
           encryptedApiKey: user.sendgridApiKeyEncrypted,
@@ -203,13 +246,30 @@ export class EmailProducer {
       }),
     );
 
-    await this.emailQueue.addBulk(
+    const addedJobs = await this.emailQueue.addBulk(
       bulkJobs.map((j) => ({
         name: j.name,
         data: j.data,
-        opts: { attempts: 3, backoff: { type: "exponential", delay: 2000 } },
+        opts: {
+          attempts: 3,
+          backoff: { type: "exponential", delay: 2000 },
+          removeOnComplete: 100,
+          removeOnFail: 200,
+        },
       })),
     );
+
+    // Update EmailJob records with new bullJobId
+    for (let j = 0; j < addedJobs.length; j++) {
+      const addedJob = addedJobs[j];
+      const originalJob = bulkJobs[j];
+      if (addedJob && originalJob) {
+        await this.prisma.emailJob.update({
+          where: { id: originalJob.data.emailJobId },
+          data: { bullJobId: addedJob.id?.toString() },
+        });
+      }
+    }
 
     return pendingJobs.length;
   }
